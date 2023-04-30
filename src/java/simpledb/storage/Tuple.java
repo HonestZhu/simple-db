@@ -99,6 +99,6 @@ public class Tuple implements Serializable {
      * reset the TupleDesc of this tuple (only affecting the TupleDesc)
      */
     public void resetTupleDesc(TupleDesc td) {
-        // TODO: some code goes here
+        this.td = td;
     }
 }

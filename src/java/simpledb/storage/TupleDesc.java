@@ -105,7 +105,7 @@ public class TupleDesc implements Serializable {
      * @throws NoSuchElementException if i is not a valid field reference.
      */
     public String getFieldName(int i) throws NoSuchElementException {
-        if(i < 0 || i >= tdItems.size()) throw new NoSuchElementException("i is not a valid field reference.");
+        if(i < 0 || i >= tdItems.size()) throw new NoSuchElementException("[getFieldName]: i is not a valid field reference.");
         else return tdItems.get(i).fieldName;
     }
 
@@ -118,7 +118,7 @@ public class TupleDesc implements Serializable {
      * @throws NoSuchElementException if i is not a valid field reference.
      */
     public Type getFieldType(int i) throws NoSuchElementException {
-        if(i < 0 || i >= tdItems.size()) throw new NoSuchElementException("i is not a valid field reference.");
+        if(i < 0 || i >= tdItems.size()) throw new NoSuchElementException("[getFieldType]: i is not a valid field reference.");
         else return tdItems.get(i).fieldType;
     }
 
@@ -130,13 +130,13 @@ public class TupleDesc implements Serializable {
      * @throws NoSuchElementException if no field with a matching name is found.
      */
     public int indexForFieldName(String name) throws NoSuchElementException {
-        if(name == null) throw new NoSuchElementException("no field with a matching name is found.");
+        if(name == null) throw new NoSuchElementException("[indexForFieldName]: no field with a matching name is found.");
         for(int i = 0; i < tdItems.size(); i ++) {
             // FiledName有可能为空，因此需要使用name.equals进行比较
             if(name.equals(getFieldName(i)))
                 return i;
         }
-        throw new NoSuchElementException("no field with a matching name is found.");
+        throw new NoSuchElementException("[indexForFieldName]: no field with a matching name is found.");
     }
 
     /**
@@ -189,9 +189,11 @@ public class TupleDesc implements Serializable {
     }
 
     public int hashCode() {
-        // If you want to use TupleDesc as keys for HashMap, implement this so
-        // that equal objects have equals hashCode() results
-        throw new UnsupportedOperationException("unimplemented");
+        int result = 0;
+        for (TDItem item : tdItems) {
+            result += item.toString().hashCode() * 41 ;
+        }
+        return result;
     }
 
     /**
@@ -202,7 +204,13 @@ public class TupleDesc implements Serializable {
      * @return String describing this descriptor.
      */
     public String toString() {
-        // TODO: some code goes here
-        return "";
+        StringBuilder stringBuilder = new StringBuilder();
+        for (int i = 0; i < this.numFields(); i++) {
+            TDItem tdItem =  tdItems.get(i);
+            stringBuilder.append(tdItem.fieldType.toString())
+                    .append("(").append(tdItem.fieldName).append("),");
+        }
+        stringBuilder.deleteCharAt(stringBuilder.length()-1);
+        return stringBuilder.toString();
     }
 }

@@ -44,8 +44,7 @@ public class HeapPageId implements PageId {
      * @see BufferPool
      */
     public int hashCode() {
-        // TODO: some code goes here
-        throw new UnsupportedOperationException("implement this");
+        return this.tableId * 1000 + this.pgNo;
     }
 
     /**

@@ -7,7 +7,9 @@ import simpledb.common.Debug;
 import simpledb.transaction.TransactionId;
 
 import java.io.*;
+import java.util.ArrayList;
 import java.util.Iterator;
+import java.util.List;
 import java.util.NoSuchElementException;
 
 /**
@@ -75,9 +77,7 @@ public class HeapPage implements Page {
      * @return the number of tuples on this page
      */
     private int getNumTuples() {
-        // TODO: some code goes here
-        return 0;
-
+        return (BufferPool.getPageSize() * 8) / (td.getSize() * 8 + 1);
     }
 
     /**
@@ -86,10 +86,7 @@ public class HeapPage implements Page {
      * @return the number of bytes in the header of a page in a HeapFile with each tuple occupying tupleSize bytes
      */
     private int getHeaderSize() {
-
-        // TODO: some code goes here
-        return 0;
-
+        return (int) Math.ceil((double) getNumTuples() / 8);
     }
 
     /**
@@ -121,8 +118,7 @@ public class HeapPage implements Page {
      * @return the PageId associated with this page.
      */
     public HeapPageId getId() {
-        // TODO: some code goes here
-        throw new UnsupportedOperationException("implement this");
+        return this.pid;
     }
 
     /**
@@ -136,7 +132,7 @@ public class HeapPage implements Page {
                 try {
                     dis.readByte();
                 } catch (IOException e) {
-                    throw new NoSuchElementException("error reading empty tuple");
+                    throw new NoSuchElementException("[readNextTuple]: error reading empty tuple");
                 }
             }
             return null;
@@ -153,7 +149,7 @@ public class HeapPage implements Page {
             }
         } catch (java.text.ParseException e) {
             e.printStackTrace();
-            throw new NoSuchElementException("parsing error!");
+            throw new NoSuchElementException("[readNextTuple]: parsing error!");
         }
 
         return t;
@@ -293,16 +289,25 @@ public class HeapPage implements Page {
      * Returns the number of unused (i.e., empty) slots on this page.
      */
     public int getNumUnusedSlots() {
-        // TODO: some code goes here
-        return 0;
+        int cnt = 0;
+        for(int i = 0; i < numSlots; i++ ){
+            if(!isSlotUsed(i)){
+                ++cnt;
+            }
+        }
+        return cnt;
     }
 
     /**
      * Returns true if associated slot on this page is filled.
      */
     public boolean isSlotUsed(int i) {
-        // TODO: some code goes here
-        return false;
+        // 计算在header中的位置
+        int iTh = i / 8;
+        // 计算具体在bitmap中的位置
+        int bitTh = i % 8;
+        int onBit = (header[iTh] >> bitTh) & 1;
+        return onBit == 1;
     }
 
     /**
@@ -318,8 +323,34 @@ public class HeapPage implements Page {
      *         (note that this iterator shouldn't return tuples in empty slots!)
      */
     public Iterator<Tuple> iterator() {
-        // TODO: some code goes here
-        return null;
+        return new Iterator<Tuple>() {
+            private int curror = -1;
+
+            @Override
+            public boolean hasNext() {
+                while (this.curror + 1 < HeapPage.this.numSlots) {
+                    if (HeapPage.this.isSlotUsed(this.curror + 1)) {
+                        return true;
+                    }
+                    this.curror++;
+                }
+                return false;
+            }
+
+            @Override
+            public Tuple next() {
+                if (this.curror + 1 >= HeapPage.this.numSlots) {
+                    throw new NoSuchElementException();
+                }
+                return HeapPage.this.tuples[++this.curror];
+            }
+
+            @Override
+            public void remove() {
+                throw new UnsupportedOperationException("Unimplemented method 'remove'");
+            }
+
+        };
     }
 
 }

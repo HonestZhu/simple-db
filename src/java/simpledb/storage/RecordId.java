@@ -60,9 +60,7 @@ public class RecordId implements Serializable {
      */
     @Override
     public int hashCode() {
-        // TODO: some code goes here
-        throw new UnsupportedOperationException("implement this");
-
+        return this.pid.getTableId()*100 + this.pid.getPageNumber()*10 + this.tupleno;
     }
 
 }

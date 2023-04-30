@@ -99,6 +99,7 @@ public class JoinTest extends SimpleDbTestBase {
     op.open();
     gtJoin.open();
     TestUtil.matchAllTuples(gtJoin, op);
+
   }
 
   /**

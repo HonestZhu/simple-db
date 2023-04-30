@@ -76,19 +76,6 @@ public class Tuple implements Serializable {
     }
 
     /**
-     * Returns the contents of this Tuple as a string. Note that to pass the
-     * system tests, the format needs to be as follows:
-     * <p>
-     * column1\tcolumn2\tcolumn3\t...\tcolumnN
-     * <p>
-     * where \t is any whitespace (except a newline)
-     */
-    public String toString() {
-        // TODO: some code goes here
-        throw new UnsupportedOperationException("Implement this");
-    }
-
-    /**
      * @return An iterator which iterates over all the fields of this tuple
      */
     public Iterator<Field> fields() {
@@ -100,5 +87,22 @@ public class Tuple implements Serializable {
      */
     public void resetTupleDesc(TupleDesc td) {
         this.td = td;
+    }
+
+    /**
+     * Returns the contents of this Tuple as a string. Note that to pass the
+     * system tests, the format needs to be as follows:
+     * <p>
+     * column1\tcolumn2\tcolumn3\t...\tcolumnN
+     * <p>
+     * where \t is any whitespace (except a newline)
+     */
+    @Override
+    public String toString() {
+        return "Tuple{" +
+                "td=" + td +
+                ", rid=" + rid +
+                ", fields=" + fields +
+                '}';
     }
 }

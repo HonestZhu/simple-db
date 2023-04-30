@@ -323,7 +323,7 @@ public class HeapPage implements Page {
      *         (note that this iterator shouldn't return tuples in empty slots!)
      */
     public Iterator<Tuple> iterator() {
-        return new Iterator<Tuple>() {
+        return new Iterator<>() {
             private int curror = -1;
 
             @Override

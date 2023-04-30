@@ -131,10 +131,12 @@ public class TupleDesc implements Serializable {
      */
     public int indexForFieldName(String name) throws NoSuchElementException {
         if(name == null) throw new NoSuchElementException("[indexForFieldName]: no field with a matching name is found.");
-        for(int i = 0; i < tdItems.size(); i ++) {
-            // FiledName有可能为空，因此需要使用name.equals进行比较
-            if(name.equals(getFieldName(i)))
+        String altName = name.substring(name.lastIndexOf(".") + 1);
+        // 因为合并后的元组可能得不到别名因此去掉.前面的名字
+        for (int i = 0; i < tdItems.size(); i++) {
+            if(name.equals(getFieldName(i)) || altName.equals(getFieldName(i)) ){
                 return i;
+            }
         }
         throw new NoSuchElementException("[indexForFieldName]: no field with a matching name is found.");
     }
@@ -191,7 +193,7 @@ public class TupleDesc implements Serializable {
     public int hashCode() {
         int result = 0;
         for (TDItem item : tdItems) {
-            result += item.toString().hashCode() * 41 ;
+            result += item.toString().hashCode() * 31 ;
         }
         return result;
     }

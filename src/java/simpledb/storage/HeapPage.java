@@ -257,6 +257,7 @@ public class HeapPage implements Page {
         int tid = t.getRecordId().getTupleNumber();
         boolean flag = false;
         for (int i = 0; i < tuples.length; i++) {
+//            System.out.println(t.equals(tuples[i]) + ", " + t + ", " + tuples[i]);
             if (t.equals(tuples[i])){
                 if(!isSlotUsed(i))
                     throw new DbException("The tuple slot is already empty.");

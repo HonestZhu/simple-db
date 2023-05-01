@@ -8,10 +8,7 @@ import simpledb.transaction.TransactionAbortedException;
 import simpledb.transaction.TransactionId;
 
 import java.io.*;
-import java.util.ArrayList;
-import java.util.Iterator;
-import java.util.List;
-import java.util.NoSuchElementException;
+import java.util.*;
 
 /**
  * HeapFile is an implementation of a DbFile that stores a collection of tuples
@@ -155,6 +152,11 @@ public class HeapFile implements DbFile {
         page.deleteTuple(t);
         pages.add(page);
         return pages;
+
+//        HeapPage page = (HeapPage) Database.getBufferPool().getPage(tid,
+//                t.getRecordId().getPageId(),Permissions.READ_WRITE);
+//        page.deleteTuple(t);
+//        return Collections.singletonList(page);
     }
 
     // see DbFile.java for javadocs

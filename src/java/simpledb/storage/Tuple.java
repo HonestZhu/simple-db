@@ -89,6 +89,19 @@ public class Tuple implements Serializable {
         this.td = td;
     }
 
+    @Override
+    public boolean equals(Object obj) {
+        if(this == obj) return true;
+        if(!(obj instanceof Tuple)) return false;
+        Tuple other = (Tuple) obj;
+        if(!td.equals(other.td)) return false;
+        if(!rid.equals(other.rid)) return false;
+        if(fields.size() != other.fields.size()) return false;
+        for(int i = 0; i < fields.size(); i ++)
+            if(!fields.get(i).equals(other.fields.get(i))) return false;
+        return true;
+    }
+
     /**
      * Returns the contents of this Tuple as a string. Note that to pass the
      * system tests, the format needs to be as follows:

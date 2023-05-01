@@ -129,15 +129,29 @@ public class IntegerAggregator implements Aggregator {
         if(needGroup && !gbfieldtype.equals(tup.getField(gbfield).getType())) {
             throw new IllegalArgumentException("Except groupType is: ["+ gbfieldtype + "] ,But given "+ tup.getField(gbfield).getType() + ".");
         }
-        if(!(tup.getField(afield) instanceof IntField)) {
-            throw new IllegalArgumentException("Except aggType is: [IntField] ,But given "+ tup.getField(afield) + ".");
-        }
-        IntField aggFeild = (IntField) tup.getField(afield);
-        Field key = tup.getField(gbfield);
-        if(groupMap.containsKey(key)) {
-            groupMap.get(key).update(((IntField) tup.getField(afield)).getValue());
+        Field key;
+        if(needGroup) {
+            key = tup.getField(gbfield);
         } else {
-            groupMap.put(key, new GroupResut(((IntField) tup.getField(afield)).getValue(), what));
+            key = new IntField(0);
+        }
+
+        if(!(tup.getField(afield) instanceof IntField)) {
+            if((tup.getField(afield) instanceof StringField) && what == Op.COUNT) {
+                if(groupMap.containsKey(key)) {
+                    groupMap.get(key).update(1);
+                } else {
+                    groupMap.put(key, new GroupResut(0, what));
+                }
+                return;
+            }
+            throw new IllegalArgumentException("Except aggType is: [INT_TYPE] ,But given "+ tup.getField(afield).getType() + ".");
+        } else {
+            if(groupMap.containsKey(key)) {
+                groupMap.get(key).update(((IntField) tup.getField(afield)).getValue());
+            } else {
+                groupMap.put(key, new GroupResut(((IntField) tup.getField(afield)).getValue(), what));
+            }
         }
     }
 
@@ -166,7 +180,7 @@ public class IntegerAggregator implements Aggregator {
             @Override
             public Tuple next() throws DbException, TransactionAbortedException, NoSuchElementException {
                 Map.Entry<Field, GroupResut> next = iterator.next();
-                Tuple tuple = new Tuple(IntegerAggregator.this.aggDesc);;
+                Tuple tuple = new Tuple(IntegerAggregator.this.aggDesc);
                 if(IntegerAggregator.this.needGroup) {
                     tuple.setField(0, next.getKey());
                     tuple.setField(1, new IntField(next.getValue().getResult()));

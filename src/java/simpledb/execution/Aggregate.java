@@ -58,14 +58,15 @@ public class Aggregate extends Operator {
 
         if(this.needGroup) {
             this.aggDesc = new TupleDesc(new Type[]{this.tupleDesc.getFieldType(gfield), Type.INT_TYPE}, new String[]{"groupVal", "aggVal"});
-            if(this.tupleDesc.getFieldType(gfield) == Type.INT_TYPE) {
-                this.aggregator = new IntegerAggregator(gfield, this.tupleDesc.getFieldType(gfield), afield, this.aggOp);
-            } else {
-                this.aggregator = new StringAggregator(gfield, this.tupleDesc.getFieldType(gfield), afield, this.aggOp);
-            }
         } else {
             this.aggDesc = new TupleDesc(new Type[]{Type.INT_TYPE}, new String[]{"aggVal"});
-            this.aggregator = new IntegerAggregator(-1, null, afield, this.aggOp);
+//            this.aggregator = new IntegerAggregator(-1, null, afield, this.aggOp);
+        }
+
+        if(this.tupleDesc.getFieldType(afield) == Type.INT_TYPE) {
+            this.aggregator = new IntegerAggregator(gfield, needGroup ? this.tupleDesc.getFieldType(gfield) : null, afield, this.aggOp);
+        } else {
+            this.aggregator = new StringAggregator(gfield, needGroup ? this.tupleDesc.getFieldType(gfield) : null, afield, this.aggOp);
         }
 
 

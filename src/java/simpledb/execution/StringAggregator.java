@@ -63,9 +63,8 @@ public class StringAggregator implements Aggregator {
         if(needGroup && !gbfieldtype.equals(tup.getField(gbfield).getType())) {
             throw new IllegalArgumentException("Except groupType is: ["+ gbfieldtype + "] ,But given "+ tup.getField(gbfield).getType() + ".");
         }
-        if(!(tup.getField(afield) instanceof IntField)) {
-            if(!((tup.getField(afield) instanceof StringField) && what == Op.COUNT))
-                throw new IllegalArgumentException("Except aggType is: [IntField] ,But given "+ tup.getField(afield).getType() + ".");
+        if(!(tup.getField(afield) instanceof StringField)) {
+            throw new IllegalArgumentException("Except aggType is: [IntField] ,But given "+ tup.getField(afield).getType() + ".");
         }
         Field key;
         if(needGroup) key = tup.getField(gbfield);

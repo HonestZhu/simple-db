@@ -136,22 +136,13 @@ public class IntegerAggregator implements Aggregator {
             key = new IntField(0);
         }
 
-        if(!(tup.getField(afield) instanceof IntField)) {
-            if((tup.getField(afield) instanceof StringField) && what == Op.COUNT) {
-                if(groupMap.containsKey(key)) {
-                    groupMap.get(key).update(1);
-                } else {
-                    groupMap.put(key, new GroupResut(0, what));
-                }
-                return;
-            }
+        if(!(tup.getField(afield) instanceof IntField))
             throw new IllegalArgumentException("Except aggType is: [INT_TYPE] ,But given "+ tup.getField(afield).getType() + ".");
+
+        if(groupMap.containsKey(key)) {
+            groupMap.get(key).update(((IntField) tup.getField(afield)).getValue());
         } else {
-            if(groupMap.containsKey(key)) {
-                groupMap.get(key).update(((IntField) tup.getField(afield)).getValue());
-            } else {
-                groupMap.put(key, new GroupResut(((IntField) tup.getField(afield)).getValue(), what));
-            }
+            groupMap.put(key, new GroupResut(((IntField) tup.getField(afield)).getValue(), what));
         }
     }
 

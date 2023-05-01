@@ -150,18 +150,33 @@ public class JoinOptimizer {
          * - 如果没有主键，就很难估计输出的大小，但合理地假设可能是【表基数的乘积】或【两个表中较大的一个】是可以接受的。
          * - 对于范围扫描，同样难以估计输出的大小，但假设【固定比例（例如30％）的交叉乘积】是合理的。一般来说，范围连接的成本应大于相同大小的两个表的非主键等值连接的成本。
          */
-        if(joinOp == Predicate.Op.EQUALS){
-            if (t1pkey && !t2pkey) {
-                card = card2;
-            } else if (!t1pkey && t2pkey) {
-                card = card1;
-            } else if (t1pkey && t2pkey) {
-                card = Math.min(card1, card2);
-            } else {
-                card = Math.max(card1, card2);
-            }
-        } else {
-            card = (int) (0.3 * card1 * card2);
+        switch (joinOp) {
+            case EQUALS:
+                if (t1pkey && !t2pkey) {
+                    card = card2;
+                } else if (!t1pkey && t2pkey) {
+                    card = card1;
+                } else if (t1pkey && t2pkey) {
+                    card = Math.min(card1, card2);
+                } else {
+                    card = Math.max(card1, card2);
+                }
+                break;
+            case NOT_EQUALS:
+                //使用记录总数-等值记录数的方法去算
+                if (t1pkey && !t2pkey) {
+                    card = card1 * card2 - card2;
+                } else if (!t1pkey && t2pkey) {
+                    card = card1 * card2 - card1;
+                } else if (t1pkey && t2pkey) {
+                    card = card1 * card2 - Math.min(card1, card2);
+                } else {
+                    card = card1 * card2 - Math.max(card, card2);
+                }
+                break;
+            default:
+                //其它记录按范围查询来算
+                card = (int) (0.3 * card1 * card2);
         }
         return card <= 0 ? 1 : card;
     }
@@ -174,26 +189,44 @@ public class JoinOptimizer {
      * @param size The size of the subsets of interest
      * @return a set of all subsets of the specified size
      */
+//    public <T> Set<Set<T>> enumerateSubsets(List<T> v, int size) {
+//        Set<Set<T>> els = new HashSet<>();
+//        els.add(new HashSet<>());
+//        // Iterator<Set> it;
+//        // long start = System.currentTimeMillis();
+//
+//        for (int i = 0; i < size; i++) {
+//            Set<Set<T>> newels = new HashSet<>();
+//            for (Set<T> s : els) {
+//                for (T t : v) {
+//                    Set<T> news = new HashSet<>(s);
+//                    if (news.add(t))
+//                        newels.add(news);
+//                }
+//            }
+//            els = newels;
+//        }
+//
+//        return els;
+//
+//    }
+
     public <T> Set<Set<T>> enumerateSubsets(List<T> v, int size) {
         Set<Set<T>> els = new HashSet<>();
-        els.add(new HashSet<>());
-        // Iterator<Set> it;
-        // long start = System.currentTimeMillis();
-
-        for (int i = 0; i < size; i++) {
-            Set<Set<T>> newels = new HashSet<>();
-            for (Set<T> s : els) {
-                for (T t : v) {
-                    Set<T> news = new HashSet<>(s);
-                    if (news.add(t))
-                        newels.add(news);
-                }
-            }
-            els = newels;
-        }
-
+        dfs(v, size,0, els, new ArrayDeque<>());
         return els;
 
+    }
+
+    private <T> void dfs(List<T> list, int size, int begin, Set<Set<T>> res, Deque<T> path) {
+        if (path.size() == size) {
+            res.add(new HashSet<>(path));
+        }
+        for (int i = begin; i < list.size(); i++) {
+            path.addLast(list.get(i));
+            dfs(list, size, i + 1, res, path);
+            path.removeLast();
+        }
     }
 
     /**
@@ -216,7 +249,6 @@ public class JoinOptimizer {
             Map<String, TableStats> stats,
             Map<String, Double> filterSelectivities, boolean explain)
             throws ParsingException {
-        // Not necessary for labs 1 and 2.
 
         CostCard bestCostCard = new CostCard();
         PlanCache planCache = new PlanCache();

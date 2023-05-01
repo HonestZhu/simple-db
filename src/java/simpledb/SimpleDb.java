@@ -72,7 +72,6 @@ public class SimpleDb {
                     it.open();
                     while (it.hasNext()) {
                         Tuple t = it.next();
-                        System.out.println(t);
                     }
                     it.close();
                 }

@@ -121,10 +121,7 @@ public class Join extends Operator {
                     for (int i = 0; i < len2; i++) {
                         tuple.setField(i + len1, t2.getField(i));
                     }
-                    System.out.println(t1 + ", " + t2 + ", " + predicate.getOperator() + ", " + tuple);
                     return tuple;
-                } else {
-                    System.out.println(t1 + ", " + t2 + ", " + predicate.getOperator());
                 }
             }
             childs[1].rewind(); // 重置迭代器

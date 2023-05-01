@@ -106,10 +106,10 @@ public class BufferPool {
             Node pre = node.pre;
             Node next = node.next;
             pre.next = next;
-            next.pre = head;
-            node.pre = head;
+            next.pre = pre;
             node.next = head.next;
             head.next.pre = node;
+            node.pre = head;
             head.next = node;
         }
 
@@ -135,8 +135,9 @@ public class BufferPool {
 
         public void put(PageId pid, Page page) {
             if(cache.containsKey(pid)) {
-                this.removeByKey(pid);
-                size --;
+                cache.get(pid).page = page;
+                moveToHead(cache.get(pid));
+                return;
             }
             if(size >= capacity) {
                 Node target = tail.pre;
@@ -144,6 +145,7 @@ public class BufferPool {
                 deleteBack();
                 size --;
             }
+
             Node node = new Node(pid, page, head, head.next);
             head.next.pre = node;
             head.next = node;

@@ -105,7 +105,8 @@ public class JoinOptimizer {
             // HINT: You may need to use the variable "j" if you implemented
             // a join algorithm that's more complicated than a basic
             // nested-loops join.
-            return -1.0;
+            double cost = cost1 + card1 * cost2 + card1 * card2;
+            return cost;
         }
     }
 
@@ -144,7 +145,24 @@ public class JoinOptimizer {
                                                    boolean t2pkey, Map<String, TableStats> stats,
                                                    Map<String, Integer> tableAliasToId) {
         int card = 1;
-        // TODO: some code goes here
+        /**
+         * - 如果要连接的属性中有一个是【主键】，则产生的连接元组数量【不能大于非主键属性】的基数。
+         * - 如果没有主键，就很难估计输出的大小，但合理地假设可能是【表基数的乘积】或【两个表中较大的一个】是可以接受的。
+         * - 对于范围扫描，同样难以估计输出的大小，但假设【固定比例（例如30％）的交叉乘积】是合理的。一般来说，范围连接的成本应大于相同大小的两个表的非主键等值连接的成本。
+         */
+        if(joinOp == Predicate.Op.EQUALS){
+            if (t1pkey && !t2pkey) {
+                card = card2;
+            } else if (!t1pkey && t2pkey) {
+                card = card1;
+            } else if (t1pkey && t2pkey) {
+                card = Math.min(card1, card2);
+            } else {
+                card = Math.max(card1, card2);
+            }
+        } else {
+            card = (int) (0.3 * card1 * card2);
+        }
         return card <= 0 ? 1 : card;
     }
 
@@ -200,7 +218,34 @@ public class JoinOptimizer {
             throws ParsingException {
         // Not necessary for labs 1 and 2.
 
-        // TODO: some code goes here
+        CostCard bestCostCard = new CostCard();
+        PlanCache planCache = new PlanCache();
+        // 思路：通过辅助方法获取每个size下最优的连接顺序，不断加入planCache中
+        for (int i = 1; i <= joins.size(); i++) {
+            Set<Set<LogicalJoinNode>> subsets = enumerateSubsets(joins, i);
+            for (Set<LogicalJoinNode> set : subsets) {
+                double bestCostSoFar = Double.MAX_VALUE;
+                bestCostCard = new CostCard();
+                for (LogicalJoinNode logicalJoinNode : set) {
+                    //根据子计划找出最优的方案
+                    CostCard costCard = computeCostAndCardOfSubplan(stats, filterSelectivities, logicalJoinNode, set, bestCostSoFar, planCache);
+                    if (costCard == null) continue;
+                    bestCostSoFar = costCard.cost;
+                    bestCostCard = costCard;
+                }
+                if (bestCostSoFar != Double.MAX_VALUE) {
+                    planCache.addPlan(set, bestCostCard.cost, bestCostCard.card, bestCostCard.plan);
+                }
+            }
+        }
+        if (explain){
+            printJoins(bestCostCard.plan, planCache, stats, filterSelectivities);
+        }
+
+        // 如果joins传进来的长度为0，则计划就为空
+        if(bestCostCard.plan != null){
+            return bestCostCard.plan;
+        }
         return joins;
     }
 

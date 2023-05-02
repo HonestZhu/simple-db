@@ -9,8 +9,10 @@ import java.util.List;
 
 import org.junit.After;
 import org.junit.Before;
+import org.junit.FixMethodOrder;
 import org.junit.Test;
 
+import org.junit.runners.MethodSorters;
 import simpledb.common.Database;
 import simpledb.common.DbException;
 import simpledb.common.Permissions;
@@ -92,7 +94,6 @@ public class BufferPoolWriteTest extends TestUtil.CreateHeapFile {
      * Unit test for BufferPool.deleteTuple()
      */
     @Test public void deleteTuple() throws Exception {
-
     	// heap file should have ~10 pages
     	HeapFile hf = SystemTestUtil.createRandomHeapFile(2, 504*10, null, null);
     	DbFileIterator it = hf.iterator(tid);
@@ -109,7 +110,7 @@ public class BufferPoolWriteTest extends TestUtil.CreateHeapFile {
     	// delete 504 tuples from the first page
     	for (int i = 0; i < 504; ++i) {
     		Tuple t = tuples.get(i);
-        	Database.getBufferPool().deleteTuple(tid, t);
+			Database.getBufferPool().deleteTuple(tid, t);
         	HeapPage p = (HeapPage) Database.getBufferPool().getPage(tid, t.getRecordId().getPageId(), Permissions.READ_ONLY);
         	assertEquals(i+1, p.getNumUnusedSlots());
         }

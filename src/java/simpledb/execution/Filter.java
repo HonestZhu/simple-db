@@ -14,6 +14,12 @@ public class Filter extends Operator {
 
     private static final long serialVersionUID = 1L;
 
+    private Predicate predicate;
+
+    private TupleDesc tupleDesc;
+
+    private OpIterator[] childs;
+
     /**
      * Constructor accepts a predicate to apply and a child operator to read
      * tuples to filter from.
@@ -22,30 +28,33 @@ public class Filter extends Operator {
      * @param child The child operator
      */
     public Filter(Predicate p, OpIterator child) {
-        // TODO: some code goes here
+        this.predicate = p;
+        this.tupleDesc = child.getTupleDesc();
+        this.childs = new OpIterator[1];
+        this.childs[0] = child;
     }
 
     public Predicate getPredicate() {
-        // TODO: some code goes here
-        return null;
+        return predicate;
     }
 
     public TupleDesc getTupleDesc() {
-        // TODO: some code goes here
-        return null;
+        return tupleDesc;
     }
 
     public void open() throws DbException, NoSuchElementException,
             TransactionAbortedException {
-        // TODO: some code goes here
+        super.open();
+        childs[0].open();
     }
 
     public void close() {
-        // TODO: some code goes here
+        super.close();
+        childs[0].close();
     }
 
     public void rewind() throws DbException, TransactionAbortedException {
-        // TODO: some code goes here
+        childs[0].rewind();
     }
 
     /**
@@ -59,19 +68,21 @@ public class Filter extends Operator {
      */
     protected Tuple fetchNext() throws NoSuchElementException,
             TransactionAbortedException, DbException {
-        // TODO: some code goes here
+        while(childs[0].hasNext()) {
+            Tuple tuple = childs[0].next();
+            if(predicate.filter(tuple)) return tuple;
+        }
         return null;
     }
 
     @Override
     public OpIterator[] getChildren() {
-        // TODO: some code goes here
-        return null;
+        return childs;
     }
 
     @Override
     public void setChildren(OpIterator[] children) {
-        // TODO: some code goes here
+        this.childs = children;
     }
 
 }

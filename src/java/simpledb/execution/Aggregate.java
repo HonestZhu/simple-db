@@ -2,12 +2,12 @@ package simpledb.execution;
 
 import simpledb.common.DbException;
 import simpledb.common.Type;
-import simpledb.execution.Aggregator.Op;
 import simpledb.storage.Tuple;
 import simpledb.storage.TupleDesc;
 import simpledb.transaction.TransactionAbortedException;
 
 import java.util.NoSuchElementException;
+
 
 /**
  * The Aggregation operator that computes an aggregate (e.g., sum, avg, max,
@@ -17,6 +17,22 @@ import java.util.NoSuchElementException;
 public class Aggregate extends Operator {
 
     private static final long serialVersionUID = 1L;
+
+    private OpIterator[] children;
+
+    private int aggFieldIndex;
+    private int groupByIndex;
+    private Aggregator.Op aggOp;
+    private TupleDesc tupleDesc;
+    private TupleDesc aggDesc;
+    private Aggregator aggregator;
+
+    private boolean needGroup;
+    /**
+     * 存放aggregator处理后的结果
+     */
+    private OpIterator opIterator;
+
 
     /**
      * Constructor.
@@ -32,52 +48,73 @@ public class Aggregate extends Operator {
      * @param aop    The aggregation operator to use
      */
     public Aggregate(OpIterator child, int afield, int gfield, Aggregator.Op aop) {
-        // TODO: some code goes here
+        // some code goes here
+        this.children = new OpIterator[]{child};
+        this.aggFieldIndex = afield;
+        this.groupByIndex = gfield;
+        this.aggOp = aop;
+        this.needGroup = gfield >= 0;
+        this.tupleDesc = child.getTupleDesc();
+
+        if(this.needGroup) {
+            this.aggDesc = new TupleDesc(new Type[]{this.tupleDesc.getFieldType(gfield), Type.INT_TYPE}, new String[]{"groupVal", "aggVal"});
+        } else {
+            this.aggDesc = new TupleDesc(new Type[]{Type.INT_TYPE}, new String[]{"aggVal"});
+//            this.aggregator = new IntegerAggregator(-1, null, afield, this.aggOp);
+        }
+
+        if(this.tupleDesc.getFieldType(afield) == Type.INT_TYPE) {
+            this.aggregator = new IntegerAggregator(gfield, needGroup ? this.tupleDesc.getFieldType(gfield) : null, afield, this.aggOp);
+        } else {
+            this.aggregator = new StringAggregator(gfield, needGroup ? this.tupleDesc.getFieldType(gfield) : null, afield, this.aggOp);
+        }
+
+
     }
 
     /**
      * @return If this aggregate is accompanied by a groupby, return the groupby
-     *         field index in the <b>INPUT</b> tuples. If not, return
-     *         {@link Aggregator#NO_GROUPING}
+     * field index in the <b>INPUT</b> tuples. If not, return
+     * {@link Aggregator#NO_GROUPING}
      */
     public int groupField() {
-        // TODO: some code goes here
-        return -1;
+        // some code goes here
+        return this.groupByIndex;
     }
 
     /**
      * @return If this aggregate is accompanied by a group by, return the name
-     *         of the groupby field in the <b>OUTPUT</b> tuples. If not, return
-     *         null;
+     * of the groupby field in the <b>OUTPUT</b> tuples. If not, return
+     * null;
      */
     public String groupFieldName() {
-        // TODO: some code goes here
-        return null;
+        // some code goes here
+        return this.tupleDesc.getFieldName(groupByIndex);
     }
 
     /**
      * @return the aggregate field
      */
     public int aggregateField() {
-        // TODO: some code goes here
-        return -1;
+        // some code goes here
+        return this.aggFieldIndex;
     }
 
     /**
      * @return return the name of the aggregate field in the <b>OUTPUT</b>
-     *         tuples
+     * tuples
      */
     public String aggregateFieldName() {
-        // TODO: some code goes here
-        return null;
+        // some code goes here
+        return this.tupleDesc.getFieldName(aggFieldIndex);
     }
 
     /**
      * @return return the aggregate operator
      */
     public Aggregator.Op aggregateOp() {
-        // TODO: some code goes here
-        return null;
+        // some code goes here
+        return this.aggOp;
     }
 
     public static String nameOfAggregatorOp(Aggregator.Op aop) {
@@ -86,7 +123,15 @@ public class Aggregate extends Operator {
 
     public void open() throws NoSuchElementException, DbException,
             TransactionAbortedException {
-        // TODO: some code goes here
+        // some code goes here
+        super.open();
+        this.children[0].open();
+        while (children[0].hasNext()) {
+            Tuple nextTuple = children[0].next();
+            aggregator.mergeTupleIntoGroup(nextTuple);
+        }
+        this.opIterator = aggregator.iterator();
+        this.opIterator.open();
     }
 
     /**
@@ -97,12 +142,18 @@ public class Aggregate extends Operator {
      * aggregate. Should return null if there are no more tuples.
      */
     protected Tuple fetchNext() throws TransactionAbortedException, DbException {
-        // TODO: some code goes here
-        return null;
+        // some code goes here
+        if (this.opIterator.hasNext()) {
+            return this.opIterator.next();
+        } else {
+            return null;
+        }
     }
 
     public void rewind() throws DbException, TransactionAbortedException {
-        // TODO: some code goes here
+        // some code goes here
+        this.children[0].rewind();
+        this.opIterator.rewind();
     }
 
     /**
@@ -117,23 +168,26 @@ public class Aggregate extends Operator {
      * iterator.
      */
     public TupleDesc getTupleDesc() {
-        // TODO: some code goes here
-        return null;
+        // some code goes here
+        return this.aggDesc;
     }
 
     public void close() {
-        // TODO: some code goes here
+        // some code goes here
+        this.children[0].close();
+        this.opIterator.close();
     }
 
     @Override
     public OpIterator[] getChildren() {
-        // TODO: some code goes here
-        return null;
+        // some code goes here
+        return this.children;
     }
 
     @Override
     public void setChildren(OpIterator[] children) {
-        // TODO: some code goes here
+        // some code goes here
+        this.children = children;
     }
 
 }

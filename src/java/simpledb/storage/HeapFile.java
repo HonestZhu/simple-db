@@ -127,7 +127,11 @@ public class HeapFile implements DbFile {
         List<Page> pages = new ArrayList<>();
         for (int i = 0; i < numPages(); i++) {
             HeapPage page = (HeapPage) Database.getBufferPool().getPage(tid, new HeapPageId(getId(), i), Permissions.READ_WRITE);
-            if(page.getNumUnusedSlots() == 0) continue;
+            if(page.getNumUnusedSlots() == 0) {
+                // 这个操作违背了S2PL，但是无所谓
+                Database.getBufferPool().unsafeReleasePage(tid, new HeapPageId(this.getId(), i));
+                continue;
+            }
             page.insertTuple(t);
             pages.add(page);
             return pages;

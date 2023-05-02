@@ -38,6 +38,8 @@ public class BufferPool {
      */
     public static final int DEFAULT_PAGES = 50;
 
+    private LockManager lockManager;
+
     private int numPages;
     private ConcurrentHashMap<PageId, Page> bufferPool;
 
@@ -126,6 +128,7 @@ public class BufferPool {
             Node pre = node.pre, next = node.next;
             pre.next = next;
             next.pre = pre;
+
         }
 
         public void removeByKey(PageId pageId) {
@@ -133,7 +136,7 @@ public class BufferPool {
             this.remove(target);
         }
 
-        public void put(PageId pid, Page page) {
+        public void put(PageId pid, Page page) throws DbException {
             if(cache.containsKey(pid)) {
                 cache.get(pid).page = page;
                 moveToHead(cache.get(pid));
@@ -141,6 +144,9 @@ public class BufferPool {
             }
             if(size >= capacity) {
                 Node target = tail.pre;
+                while(target != head && target.page.isDirty() != null)
+                    target = target.pre;
+                if(target == head) throw new DbException("There is no suitable page storage space or all pages are dirty.");
                 cache.remove(target.pageId);
                 deleteBack();
                 size --;
@@ -164,6 +170,7 @@ public class BufferPool {
         this.numPages = numPages;
 //        this.bufferPool = new ConcurrentHashMap<>();
         this.cache = new LRUCache(numPages);
+        this.lockManager = new LockManager();
     }
 
     public static int getPageSize() {
@@ -197,6 +204,19 @@ public class BufferPool {
      */
     public Page getPage(TransactionId tid, PageId pid, Permissions perm)
             throws TransactionAbortedException, DbException {
+        long start = System.currentTimeMillis();
+        while(true) {
+            try {
+                boolean hasGetLock = lockManager.acquireLock(tid, pid, perm);
+                // 未获取到锁即回滚
+                if(hasGetLock) break;
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            }
+            long now = System.currentTimeMillis();
+            if(now - start > 500)
+                throw new TransactionAbortedException();
+        }
         if (cache.get(pid) == null) {
             DbFile file = Database.getCatalog().getDatabaseFile(pid.getTableId());
             Page page = file.readPage(pid);
@@ -221,8 +241,7 @@ public class BufferPool {
      * @param pid the ID of the page to unlock
      */
     public void unsafeReleasePage(TransactionId tid, PageId pid) {
-        // TODO: some code goes here
-        // not necessary for lab1|lab2
+        lockManager.unLock(tid, pid);
     }
 
     /**
@@ -231,17 +250,14 @@ public class BufferPool {
      * @param tid the ID of the transaction requesting the unlock
      */
     public void transactionComplete(TransactionId tid) {
-        // TODO: some code goes here
-        // not necessary for lab1|lab2
+        transactionComplete(tid, true);
     }
 
     /**
      * Return true if the specified transaction has a lock on the specified page
      */
     public boolean holdsLock(TransactionId tid, PageId p) {
-        // TODO: some code goes here
-        // not necessary for lab1|lab2
-        return false;
+        return lockManager.holdsLock(tid, p);
     }
 
     /**
@@ -252,8 +268,34 @@ public class BufferPool {
      * @param commit a flag indicating whether we should commit or abort
      */
     public void transactionComplete(TransactionId tid, boolean commit) {
-        // TODO: some code goes here
-        // not necessary for lab1|lab2
+        if (commit) {
+            try {
+                flushPages(tid);
+            } catch (IOException e) {
+                throw new RuntimeException(e);
+            }
+        } else {
+
+        }
+        lockManager.unLockByTId(tid);
+    }
+
+    public synchronized void rollback(TransactionId tid) {
+        for (Map.Entry<PageId, Node> group : cache.getCache().entrySet()) {
+            PageId pid = group.getKey();
+            Page page = group.getValue().page;
+            if(tid.equals(page.isDirty())) {
+                int tableId = pid.getTableId();
+                DbFile file = Database.getCatalog().getDatabaseFile(tableId);
+                Page readPage = file.readPage(pid);
+                cache.removeByKey(pid);
+                try {
+                    cache.put(pid, readPage);
+                } catch (DbException e) {
+                    throw new RuntimeException(e);
+                }
+            }
+        }
     }
 
     /**
@@ -297,7 +339,7 @@ public class BufferPool {
         updateBufferPool(pages, tid);
     }
 
-    public void updateBufferPool(List<Page> updatePages, TransactionId tid) {
+    public void updateBufferPool(List<Page> updatePages, TransactionId tid) throws DbException {
         for (Page page : updatePages) {
             page.markDirty(true, tid);
             // update bufferPool
@@ -378,4 +420,92 @@ public class BufferPool {
         // not necessary for lab1
     }
 
+    public class LockManager
+    {
+        private ConcurrentHashMap<PageId, ConcurrentHashMap<TransactionId, Permissions>> lockMap;
+
+        public LockManager() {
+            this.lockMap = new ConcurrentHashMap<>();
+        }
+
+        public synchronized boolean holdsLock(TransactionId tid, PageId pid) {
+            ConcurrentHashMap<TransactionId, Permissions> tidMap = lockMap.get(pid);
+            if(tidMap == null) return false;
+            return tidMap.get(tid) != null;
+        }
+
+        public synchronized boolean acquireLock(TransactionId tid, PageId pid, Permissions perm) throws InterruptedException {
+            ConcurrentHashMap<TransactionId, Permissions> tidMap = lockMap.get(pid);
+            if(tidMap == null) {
+                put(tid, pid, perm);
+                return true;
+            }
+
+            if(!holdsLock(tid, pid)) {
+                if(perm == Permissions.READ_WRITE) {
+                    return false;
+                } else {
+                    if(tidMap.size() > 1) {
+                        put(tid, pid, perm);
+                        return true;
+                    } else {
+                        for (Permissions value : tidMap.values()) {
+                            if(value == Permissions.READ_WRITE) {
+                                return false;
+                            } else {
+                                put(tid, pid, perm);
+                                return true;
+                            }
+                        }
+                    }
+                }
+            } else {
+                Permissions holdPerm = tidMap.get(tid);
+                if(holdPerm == perm) return true;
+                else {
+                    // 降级
+                    if(perm == Permissions.READ_ONLY) {
+                        tidMap.remove(tid);
+                        put(tid, pid, perm);
+                        return true;
+                    } else {
+                        if(tidMap.size() > 1) {
+                            return false;
+                        } else {
+                            tidMap.remove(tid);
+                            put(tid, pid, perm);
+                            return true;
+                        }
+                    }
+                }
+            }
+            return false;
+        }
+
+        public synchronized void put(TransactionId tid, PageId pid, Permissions perm) {
+            ConcurrentHashMap<TransactionId, Permissions> tidMap = lockMap.get(pid);
+            if(tidMap == null) {
+                tidMap = new ConcurrentHashMap<>();
+            }
+            tidMap.put(tid, perm);
+            lockMap.put(pid, tidMap);
+        }
+
+        public synchronized void unLock(TransactionId tid, PageId pid) {
+            if(holdsLock(tid, pid)) {
+                ConcurrentHashMap<TransactionId, Permissions> tidMap = lockMap.get(pid);
+                tidMap.remove(tid);
+                if(tidMap.size() == 0) {
+                    lockMap.remove(pid);
+                }
+            }
+        }
+
+        public synchronized void unLockByTId(TransactionId tid) {
+            Set<PageId> pageIds = lockMap.keySet();
+            for (PageId pageId : pageIds){
+                unLock(tid, pageId);
+            }
+        }
+    }
 }

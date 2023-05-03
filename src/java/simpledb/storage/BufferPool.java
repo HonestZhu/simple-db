@@ -407,7 +407,9 @@ public class BufferPool {
         if (tid != null) {
             Page before = target.getBeforeImage();
             Database.getLogFile().logWrite(tid, before,target);
-            Database.getCatalog().getDatabaseFile(pid.getTableId()).writePage(target);
+            Database.getLogFile().force();
+            DbFile file = Database.getCatalog().getDatabaseFile(pid.getTableId());
+            file.writePage(target);
         }
     }
 
@@ -423,8 +425,10 @@ public class BufferPool {
             // 涉及到事务就应该setBeforeImage
             flushPage.setBeforeImage();
             if (flushPageDirty != null && flushPageDirty.equals(tid)) {
-                Database.getLogFile().logWrite(tid, before, flushPage);
-                Database.getCatalog().getDatabaseFile(pid.getTableId()).writePage(flushPage);
+                flushPage(flushPage.getId());
+//                Database.getLogFile().logWrite(tid, before, flushPage);
+////                Database.getLogFile().force();
+//                Database.getCatalog().getDatabaseFile(pid.getTableId()).writePage(flushPage);
             }
         }
     }

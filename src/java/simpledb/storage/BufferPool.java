@@ -275,9 +275,27 @@ public class BufferPool {
                 throw new RuntimeException(e);
             }
         } else {
-
+            rollBack(tid);
         }
         lockManager.unLockByTId(tid);
+    }
+
+    public synchronized void rollBack(TransactionId tid){
+        for (Map.Entry<PageId, Node> group : cache.getCache().entrySet()) {
+            PageId pageId = group.getKey();
+            Page page = group.getValue().page;
+            if (tid.equals(page.isDirty())) {
+                int tableId = pageId.getTableId();
+                DbFile table = Database.getCatalog().getDatabaseFile(tableId);
+                Page readPage = table.readPage(pageId);
+                cache.removeByKey(group.getKey());
+                try {
+                    cache.put(pageId,readPage);
+                } catch (DbException e) {
+                    throw new RuntimeException(e);
+                }
+            }
+        }
     }
 
     public synchronized void rollback(TransactionId tid) {
